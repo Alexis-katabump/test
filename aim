@@ -1,0 +1,131 @@
+local player = game.Players.LocalPlayer
+local userInput = game:GetService("UserInputService")
+local currentCamera = game.Workspace.CurrentCamera
+local zombies = workspace:WaitForChild("Zombies")
+
+-- Notification UI
+local Notification = Instance.new("TextLabel", player:WaitForChild("PlayerGui"))
+Notification.Size = UDim2.new(0, 200, 0, 50)
+Notification.Position = UDim2.new(0.5, -100, 0.4, -25)
+Notification.Text = ""
+Notification.BackgroundTransparency = 1
+Notification.TextStrokeTransparency = 0
+Notification.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+Notification.TextColor3 = Color3.fromRGB(255, 255, 255)
+Notification.Font = Enum.Font.SourceSansBold
+Notification.TextSize = 24
+
+local aimbotEnabled = false
+local aimbotActive = false
+
+-- Fonction pour afficher les notifications
+local function showNotification(message)
+    Notification.Text = message
+    wait(2)
+    Notification.Text = ""
+end
+
+-- Fonction pour activer/désactiver l'aimbot
+local function toggleAimbot()
+    aimbotEnabled = not aimbotEnabled
+    if aimbotEnabled then
+        showNotification("Aimbot activé")
+    else
+        showNotification("Aimbot désactivé")
+    end
+end
+
+-- Fonction pour surligner les zombies
+local function highlightZombies()
+    for _, zombie in pairs(zombies:GetChildren()) do
+        if zombie:IsA("Model") then
+            local highlight = zombie:FindFirstChild("Highlight")
+            if not highlight then
+                highlight = Instance.new("Highlight")
+                highlight.Parent = zombie
+            end
+            highlight.Enabled = true
+            highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Rouge pour les zombies
+            highlight.OutlineColor = Color3.fromRGB(255, 255, 255) -- Blanc pour le contour
+        end
+    end
+end
+
+-- Fonction pour obtenir le zombie le plus proche
+local function getClosestZombie()
+    local closestZombie = nil
+    local shortestDistance = math.huge
+    local playerPos = player.Character.HumanoidRootPart.Position
+
+    for _, zombie in pairs(zombies:GetChildren()) do
+        if zombie:IsA("Model") then
+            local head = zombie:FindFirstChild("Head")
+            if head then
+                local distance = (head.Position - playerPos).Magnitude
+                if distance < shortestDistance then
+                    closestZombie = zombie
+                    shortestDistance = distance
+                end
+            end
+        end
+    end
+    return closestZombie
+end
+
+-- Fonction pour viser le zombie
+local function aimAtZombie()
+    local closestZombie = getClosestZombie()
+    if closestZombie then
+        local head = closestZombie:FindFirstChild("Head")
+        if head then
+            local screenPoint = currentCamera:WorldToScreenPoint(head.Position)
+            mousemoveabs(screenPoint.X, screenPoint.Y)
+            currentCamera.CFrame = CFrame.new(currentCamera.CFrame.Position, head.Position)
+        end
+    end
+end
+
+-- Gestionnaires d'entrée
+userInput.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.E then
+        toggleAimbot()
+    elseif input.KeyCode == Enum.KeyCode.L then
+        aimbotEnabled = not aimbotEnabled
+        highlightZombies()
+    end
+end)
+
+userInput.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.E then
+        aimbotActive = true
+    end
+end)
+
+userInput.InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.E then
+        aimbotActive = false
+    end
+end)
+
+-- Boucle principale
+game:GetService("RunService").RenderStepped:Connect(function()
+    if aimbotActive then
+        aimAtZombie()
+    end
+end)
+
+zombies.ChildAdded:Connect(function(zombie)
+    if zombie:IsA("Model") then
+        wait(0.1)
+        local highlight = zombie:FindFirstChild("Highlight")
+        if not highlight then
+            highlight = Instance.new("Highlight")
+            highlight.Parent = zombie
+        end
+        highlight.Enabled = aimbotEnabled
+    end
+end)
+
+highlightZombies()
